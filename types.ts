@@ -12,6 +12,7 @@ export interface AppProps {
   account?: string;
   roles?: Roles;
   contractAddress?: string;
+  onGoHome?: () => void;
 }
 
 export type TxStatus = 'idle' | 'pending' | 'confirmed' | 'failed';

@@ -148,7 +148,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
             Thank you, {formData.name}. Your details and verified diploma have been securely recorded.
           </p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={() => window.location.href = '/'}
             className="px-6 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
           >
             Verify Another Document
@@ -164,11 +164,17 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
       {/* Navigation Bar */}
       <nav className="flex justify-between items-center px-6 py-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
          <div className="flex items-center gap-2">
-            <img 
-              src="/NovaPrincipalV2.png" 
-              alt="Nova SBE" 
-              className="h-10 w-auto"
-            />
+            <button 
+              onClick={() => window.location.href = '/'} 
+              className="hover:opacity-70 transition-opacity focus:outline-none cursor-pointer"
+              title="Home"
+            >
+              <img 
+                src="/NovaPrincipalV2.png" 
+                alt="Nova SBE" 
+                className="h-10 w-auto"
+              />
+            </button>
          </div>
          <button
            onClick={onAdminEnter}
@@ -183,9 +189,9 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
           
           <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
             <div className="bg-slate-900 px-8 py-8 text-white relative overflow-hidden">
-              <div className="relative z-10">
-                <h1 className="text-2xl font-bold">Diploma Verification</h1>
-                <p className="text-slate-300 text-sm mt-1 max-w-lg">Securely verify the authenticity of academic credentials on the Sepolia blockchain.</p>
+              <div className="relative z-10 flex items-baseline gap-4">
+                <h1 className="text-2xl font-bold whitespace-nowrap">Diploma Verification</h1>
+                <p className="text-slate-300 text-sm max-w-lg">Securely verify the authenticity of academic credentials on the Sepolia blockchain.</p>
               </div>
               {/* Decorative circle */}
               <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>

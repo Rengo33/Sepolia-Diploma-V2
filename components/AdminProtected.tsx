@@ -121,6 +121,7 @@ export default function AdminProtected({ onBack }: AdminProtectedProps) {
         account={account}
         roles={roles}
         contractAddress={CONTRACT_ADDRESS}
+        onGoHome={onBack}
       />
     );
   }

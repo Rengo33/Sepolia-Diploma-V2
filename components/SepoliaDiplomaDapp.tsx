@@ -13,7 +13,8 @@ export default function SepoliaDiplomaDapp({
   signer: initialSigner, 
   account: initialAccount, 
   roles: initialRoles, 
-  contractAddress 
+  contractAddress,
+  onGoHome 
 }: AppProps) {
 
   // --- State Management ---
@@ -80,9 +81,27 @@ export default function SepoliaDiplomaDapp({
 
   const copyAddress = async () => {
     if (account) {
-      await navigator.clipboard.writeText(account);
+      try {
+        await navigator.clipboard.writeText(account);
+        alert("Wallet address copied to clipboard!");
+      } catch (err) {
+        console.error("Failed to copy address", err);
+      }
       setMenuOpen(false);
     }
+  };
+
+  const viewOnEtherscan = () => {
+    if (account) {
+      window.open(`https://sepolia.etherscan.io/address/${account}`, '_blank');
+      setMenuOpen(false);
+    }
+  };
+
+  const disconnectWallet = () => {
+    setMenuOpen(false);
+    // Explicitly navigate to root to clear session and reset state
+    window.location.href = '/';
   };
 
   // --- Render ---
@@ -93,11 +112,17 @@ export default function SepoliaDiplomaDapp({
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img 
-              src="/NovaPrincipalV2.png" 
-              alt="Nova SBE" 
-              className="h-10 w-auto"
-            />
+            <button 
+              onClick={onGoHome} 
+              className="hover:opacity-70 transition-opacity focus:outline-none cursor-pointer"
+              title="Back to Home"
+            >
+              <img 
+                src="/NovaPrincipalV2.png" 
+                alt="Nova SBE" 
+                className="h-10 w-auto"
+              />
+            </button>
             <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 uppercase tracking-wide">Admin View</span>
           </div>
 
@@ -134,15 +159,10 @@ export default function SepoliaDiplomaDapp({
                       <button onClick={copyAddress} className="w-full px-4 py-2.5 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
                         <Copy size={14} /> Copy Address
                       </button>
-                      <a 
-                        href={`https://sepolia.etherscan.io/address/${account}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="w-full px-4 py-2.5 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                      >
+                      <button onClick={viewOnEtherscan} className="w-full px-4 py-2.5 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
                         <ExternalLink size={14} /> View on Etherscan
-                      </a>
-                      <button onClick={() => window.location.reload()} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                      </button>
+                      <button onClick={disconnectWallet} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
                         <LogOut size={14} /> Disconnect
                       </button>
                     </div>
