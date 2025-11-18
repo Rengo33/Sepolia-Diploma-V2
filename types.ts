@@ -25,7 +25,9 @@ export const CONTRACT_ABI = [
   "function nextId() external view returns (uint256)",
   "function hasRole(bytes32 role, address account) external view returns (bool)",
   "function hasMinterRole(address account) external view returns (bool)",
-  "function hasRevokerRole(address account) external view returns (bool)"
+  "function hasRevokerRole(address account) external view returns (bool)",
+  "function revokeDiploma(uint256 tokenId) external",
+  "function verifyDiploma(uint256 tokenId) external view returns (address _issuer, address holder, string memory metadataURI, string memory pdfHash, bool valid)"
 ];
 
 export const DEFAULT_METADATA =

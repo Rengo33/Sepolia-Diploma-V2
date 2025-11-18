@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserProvider, Contract, JsonRpcSigner } from 'ethers';
-import { Wallet, Copy, LogOut, ExternalLink, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { Wallet, Copy, LogOut, ExternalLink, ChevronDown } from 'lucide-react';
 
 import { AppProps, Roles, CONTRACT_ABI } from '../types';
 import { WalletModal } from './WalletModal';
 import { MintSection } from './MintSection';
 import { VerifySection } from './VerifySection';
+import { RevokeSection } from './RevokeSection';
 
 export default function SepoliaDiplomaDapp({ 
   provider: initialProvider, 
@@ -24,7 +25,7 @@ export default function SepoliaDiplomaDapp({
   const [contract, setContract] = useState<Contract | null>(null);
   
   const [isWalletModalOpen, setWalletModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'mint' | 'verify'>('verify');
+  const [activeTab, setActiveTab] = useState<'mint' | 'verify' | 'revoke'>('verify');
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [wallets, setWallets] = useState<any>({});
 
@@ -72,10 +73,6 @@ export default function SepoliaDiplomaDapp({
       setSigner(s);
       setAccount(addr);
       
-      // If standalone usage (not via AdminProtected), we can't easily fetch roles here 
-      // without duplicating logic, so we assume defaults or you could add check logic here.
-      // For now, we rely on the Admin wrapper to provide correct roles.
-
     } catch (err) {
       console.error("Connection failed", err);
     }
@@ -97,7 +94,7 @@ export default function SepoliaDiplomaDapp({
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/3/3a/Nova_SBE_Logo.svg" 
+              src="public/NovaPrincipalV2.png" 
               alt="Nova SBE" 
               className="h-10 w-auto"
             />
@@ -164,16 +161,14 @@ export default function SepoliaDiplomaDapp({
              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard</h1>
              <p className="text-slate-500 mt-2">Manage diploma issuance and verification.</p>
           </div>
-          
-          {/* Quick Stats or similar could go here */}
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
           {/* Tabs */}
-          <div className="flex border-b border-slate-100">
+          <div className="flex border-b border-slate-100 overflow-x-auto">
             <button
               onClick={() => setActiveTab('verify')}
-              className={`flex-1 py-4 text-sm font-semibold transition-colors relative ${
+              className={`flex-1 min-w-[120px] py-4 text-sm font-semibold transition-colors relative ${
                 activeTab === 'verify' ? 'text-slate-900 bg-white' : 'text-slate-400 bg-slate-50 hover:text-slate-600'
               }`}
             >
@@ -183,12 +178,23 @@ export default function SepoliaDiplomaDapp({
             {(roles.isAdmin || roles.isMinter) && (
               <button
                 onClick={() => setActiveTab('mint')}
-                className={`flex-1 py-4 text-sm font-semibold transition-colors relative ${
+                className={`flex-1 min-w-[120px] py-4 text-sm font-semibold transition-colors relative ${
                   activeTab === 'mint' ? 'text-slate-900 bg-white' : 'text-slate-400 bg-slate-50 hover:text-slate-600'
                 }`}
               >
                 Mint Diploma
                 {activeTab === 'mint' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900"></div>}
+              </button>
+            )}
+            {(roles.isAdmin || roles.isRevoker) && (
+              <button
+                onClick={() => setActiveTab('revoke')}
+                className={`flex-1 min-w-[120px] py-4 text-sm font-semibold transition-colors relative ${
+                  activeTab === 'revoke' ? 'text-red-600 bg-white' : 'text-slate-400 bg-slate-50 hover:text-slate-600'
+                }`}
+              >
+                Revoke Diploma
+                {activeTab === 'revoke' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600"></div>}
               </button>
             )}
           </div>
@@ -211,6 +217,7 @@ export default function SepoliaDiplomaDapp({
               <>
                 {activeTab === 'verify' && <VerifySection contract={contract} account={account} />}
                 {activeTab === 'mint' && <MintSection contract={contract} roles={roles} onHashGenerated={() => {}} />}
+                {activeTab === 'revoke' && <RevokeSection contract={contract} roles={roles} />}
               </>
             )}
           </div>

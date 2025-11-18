@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Contract } from 'ethers';
-import { Upload, Search, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Upload, Search, CheckCircle, XCircle, Loader2, ShieldAlert } from 'lucide-react';
 
 interface VerifySectionProps {
   contract: Contract | null;
@@ -10,7 +10,7 @@ interface VerifySectionProps {
 export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account }) => {
   const [uploadedPdfHash, setUploadedPdfHash] = useState('');
   const [fileName, setFileName] = useState('');
-  const [status, setStatus] = useState<'idle' | 'scanning' | 'found' | 'not_found'>('idle');
+  const [status, setStatus] = useState<'idle' | 'scanning' | 'found' | 'revoked' | 'not_found'>('idle');
   const [foundTokenId, setFoundTokenId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
 
@@ -60,10 +60,20 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
         try {
           const owner = await contract.ownerOf(tokenId);
           if (owner.toLowerCase() === account.toLowerCase()) {
-             const chainHash = await contract.getPdfHash(tokenId);
+             // Check specific diploma data
+             // verifyDiploma returns: [issuer, holder, metadataURI, pdfHash, valid]
+             // If verifyDiploma is not available on ABI, this will fail, but we added it.
+             const data = await contract.verifyDiploma(tokenId);
+             const chainHash = data.pdfHash;
+             const isValid = data.valid;
+
              if (chainHash.toLowerCase() === hash.toLowerCase()) {
                 setFoundTokenId(tokenId);
-                setStatus('found');
+                if (isValid) {
+                  setStatus('found');
+                } else {
+                  setStatus('revoked');
+                }
                 matchFound = true;
                 return; // Exit early
              }
@@ -142,13 +152,25 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
         </div>
       )}
 
-      {status === 'not_found' && (
+      {status === 'revoked' && (
         <div className="p-8 border border-red-200 bg-red-50/50 rounded-xl flex flex-col items-center justify-center text-center animate-in zoom-in-95">
            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-             <XCircle className="w-8 h-8 text-red-600" />
+             <ShieldAlert className="w-8 h-8 text-red-600" />
            </div>
-           <h4 className="text-xl font-bold text-red-900">Verification Failed</h4>
+           <h4 className="text-xl font-bold text-red-900">Diploma Revoked</h4>
            <p className="text-red-800 text-sm mt-2 max-w-md">
+             This document matches a record on the blockchain (Token #{foundTokenId}), but it has been officially revoked by the issuer.
+           </p>
+        </div>
+      )}
+
+      {status === 'not_found' && (
+        <div className="p-8 border border-slate-200 bg-slate-50 rounded-xl flex flex-col items-center justify-center text-center animate-in zoom-in-95">
+           <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+             <XCircle className="w-8 h-8 text-slate-500" />
+           </div>
+           <h4 className="text-xl font-bold text-slate-700">Verification Failed</h4>
+           <p className="text-slate-600 text-sm mt-2 max-w-md">
              No matching digital diploma was found in the connected wallet for this specific file.
            </p>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
-import { Upload, CheckCircle, XCircle, Wallet, Loader2, Send, Lock } from 'lucide-react';
+import { Upload, CheckCircle, XCircle, Wallet, Loader2, Send, Lock, ShieldAlert } from 'lucide-react';
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from '../types';
 import { WalletModal } from './WalletModal';
 
@@ -23,7 +23,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
   const [uploadedPdfHash, setUploadedPdfHash] = useState('');
   const [fileName, setFileName] = useState('');
   const [verifyMatchId, setVerifyMatchId] = useState<number | null>(null);
-  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'fail'>('idle');
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'fail' | 'revoked'>('idle');
 
   // UI Helpers
   const [isWalletModalOpen, setWalletModalOpen] = useState(false);
@@ -102,10 +102,14 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
         try {
           const owner = await contract.ownerOf(tokenId);
           if (owner.toLowerCase() === account.toLowerCase()) {
-            const chainHash = await contract.getPdfHash(tokenId);
+            // Use verifyDiploma to check validity as well
+            const data = await contract.verifyDiploma(tokenId);
+            const chainHash = data.pdfHash;
+            const isValid = data.valid;
+
             if (chainHash.toLowerCase() === hash.toLowerCase()) {
               setVerifyMatchId(tokenId);
-              setVerifyStatus('success');
+              setVerifyStatus(isValid ? 'success' : 'revoked');
               matchFound = true;
               return;
             }
@@ -161,7 +165,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
       <nav className="flex justify-between items-center px-6 py-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
          <div className="flex items-center gap-2">
             <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/3/3a/Nova_SBE_Logo.svg" 
+              src="public/NovaPrincipalV2.png" 
               alt="Nova SBE" 
               className="h-10 w-auto"
             />
@@ -287,14 +291,26 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
                           </div>
                         )}
 
-                        {verifyStatus === 'fail' && (
-                           <div className="flex items-center gap-3 px-5 py-3 bg-red-50 border border-red-100 rounded-xl text-red-800 animate-in slide-in-from-bottom-2 w-full shadow-sm">
+                        {verifyStatus === 'revoked' && (
+                          <div className="flex items-center gap-3 px-5 py-3 bg-red-50 border border-red-100 rounded-xl text-red-800 animate-in slide-in-from-bottom-2 w-full shadow-sm">
                             <div className="bg-red-100 p-1.5 rounded-full">
-                                <XCircle size={18} className="text-red-600" />
+                                <ShieldAlert size={18} className="text-red-600" />
                             </div>
                             <div className="text-left flex-1">
-                              <p className="text-sm font-bold text-red-900">Verification Failed</p>
-                              <p className="text-xs text-red-700 mt-0.5">No matching record found for this document in the connected wallet.</p>
+                              <p className="text-sm font-bold text-red-900">Diploma Revoked</p>
+                              <p className="text-xs text-red-700 mt-0.5">Record exists but has been invalidated by issuer.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {verifyStatus === 'fail' && (
+                           <div className="flex items-center gap-3 px-5 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 animate-in slide-in-from-bottom-2 w-full shadow-sm">
+                            <div className="bg-slate-200 p-1.5 rounded-full">
+                                <XCircle size={18} className="text-slate-500" />
+                            </div>
+                            <div className="text-left flex-1">
+                              <p className="text-sm font-bold text-slate-900">Verification Failed</p>
+                              <p className="text-xs text-slate-600 mt-0.5">No matching record found for this document in the connected wallet.</p>
                             </div>
                           </div>
                         )}
