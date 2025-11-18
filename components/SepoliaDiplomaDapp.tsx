@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { BrowserProvider, Contract, JsonRpcSigner } from 'ethers';
 import { Wallet, Copy, LogOut, ExternalLink, ChevronDown } from 'lucide-react';
 
@@ -27,7 +27,11 @@ export default function SepoliaDiplomaDapp({
   
   const [isWalletModalOpen, setWalletModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'mint' | 'verify' | 'revoke'>('verify');
-  const [isMenuOpen, setMenuOpen] = useState(false);
+  
+  // Dropdown logic
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const [wallets, setWallets] = useState<any>({});
 
   // Sync state with props if they change (e.g. from AdminProtected wrapper)
@@ -60,6 +64,17 @@ export default function SepoliaDiplomaDapp({
         console.error("Contract init failed", e);
     }
   }, [signer, contractAddress]);
+
+  // --- Click Outside Handler ---
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // --- Actions ---
   const connectWallet = async (providerObject: any) => {
@@ -135,9 +150,9 @@ export default function SepoliaDiplomaDapp({
                 Connect Wallet
               </button>
             ) : (
-              <div className="relative">
+              <div className="relative" ref={menuRef}>
                 <button 
-                  onClick={() => setMenuOpen(!isMenuOpen)}
+                  onClick={() => setMenuOpen(!menuOpen)}
                   className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-50 transition-colors"
                 >
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
@@ -145,7 +160,7 @@ export default function SepoliaDiplomaDapp({
                   <ChevronDown size={14} className="text-slate-400" />
                 </button>
 
-                {isMenuOpen && (
+                {menuOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                     <div className="p-4 border-b border-slate-50">
                       <p className="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-2">Current Roles</p>
@@ -254,9 +269,6 @@ export default function SepoliaDiplomaDapp({
         onConnect={connectWallet}
         wallets={wallets}
       />
-      
-      {/* Overlay for mobile menu */}
-      {isMenuOpen && <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setMenuOpen(false)}></div>}
     </div>
   );
 }
