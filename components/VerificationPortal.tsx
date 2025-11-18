@@ -160,8 +160,11 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
       {/* Navigation Bar */}
       <nav className="flex justify-between items-center px-6 py-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-slate-300/50">N</div>
-            <span className="font-bold text-lg text-slate-900 tracking-tight">Nova Portal</span>
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/commons/3/3a/Nova_SBE_Logo.svg" 
+              alt="Nova SBE" 
+              className="h-10 w-auto"
+            />
          </div>
          <button
            onClick={onAdminEnter}

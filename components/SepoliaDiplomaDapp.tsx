@@ -95,12 +95,13 @@ export default function SepoliaDiplomaDapp({
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-slate-800 to-black rounded-lg flex items-center justify-center text-white font-bold text-lg">
-              N
-            </div>
-            <span className="font-bold text-lg tracking-tight text-slate-800 hidden sm:block">NOVA Portal</span>
-            <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 uppercase tracking-wide ml-2">Admin View</span>
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/commons/3/3a/Nova_SBE_Logo.svg" 
+              alt="Nova SBE" 
+              className="h-10 w-auto"
+            />
+            <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 uppercase tracking-wide">Admin View</span>
           </div>
 
           <div className="relative">
