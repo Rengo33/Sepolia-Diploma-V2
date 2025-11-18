@@ -125,8 +125,9 @@ export default function SepoliaDiplomaDapp({
       
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        {/* Changed from max-w-5xl to w-full to push logo to far left */}
+        <div className="w-full px-6 sm:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <button 
               onClick={onGoHome} 
               className="hover:opacity-70 transition-opacity focus:outline-none cursor-pointer"
@@ -141,50 +142,74 @@ export default function SepoliaDiplomaDapp({
             <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 uppercase tracking-wide">Admin View</span>
           </div>
 
-          <div className="relative">
-            {!account ? (
-              <button 
-                onClick={() => setWalletModalOpen(true)}
-                className="bg-slate-900 text-white px-5 py-2 rounded-full font-medium text-sm hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 active:scale-95"
-              >
-                Connect Wallet
-              </button>
-            ) : (
-              <div className="relative" ref={menuRef}>
-                <button 
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-50 transition-colors"
-                >
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <span className="text-sm font-mono text-slate-600">{account.slice(0, 6)}...{account.slice(-4)}</span>
-                  <ChevronDown size={14} className="text-slate-400" />
-                </button>
-
-                {menuOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="p-4 border-b border-slate-50">
-                      <p className="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-2">Current Roles</p>
-                      <div className="flex flex-wrap gap-2">
-                        {roles.isAdmin && <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded border border-slate-200">ADMIN</span>}
-                        {roles.isMinter && <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded border border-green-200">MINTER</span>}
-                        {roles.isRevoker && <span className="px-2 py-0.5 bg-red-50 text-red-700 text-[10px] font-bold rounded border border-red-200">REVOKER</span>}
-                      </div>
-                    </div>
-                    <div className="py-1">
-                      <button onClick={copyAddress} className="w-full px-4 py-2.5 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-                        <Copy size={14} /> Copy Address
-                      </button>
-                      <button onClick={viewOnEtherscan} className="w-full px-4 py-2.5 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-                        <ExternalLink size={14} /> View on Etherscan
-                      </button>
-                      <button onClick={disconnectWallet} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                        <LogOut size={14} /> Disconnect
-                      </button>
-                    </div>
-                  </div>
+          <div className="flex items-center gap-4">
+            {/* Role Badges - Desktop View */}
+            {account && (
+              <div className="hidden md:flex items-center gap-3">
+                {roles.isAdmin && (
+                  <span className="px-2.5 py-1 rounded border border-black text-black text-xs font-bold uppercase tracking-wide">
+                    Admin
+                  </span>
+                )}
+                {roles.isMinter && (
+                  <span className="px-2.5 py-1 rounded border border-green-600 text-green-600 text-xs font-bold uppercase tracking-wide">
+                    Minter
+                  </span>
+                )}
+                {roles.isRevoker && (
+                  <span className="px-2.5 py-1 rounded border border-red-600 text-red-600 text-xs font-bold uppercase tracking-wide">
+                    Revoker
+                  </span>
                 )}
               </div>
             )}
+
+            {/* Wallet Button */}
+            <div className="relative">
+              {!account ? (
+                <button 
+                  onClick={() => setWalletModalOpen(true)}
+                  className="bg-slate-900 text-white px-5 py-2 rounded-full font-medium text-sm hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 active:scale-95"
+                >
+                  Connect Wallet
+                </button>
+              ) : (
+                <div className="relative" ref={menuRef}>
+                  <button 
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-sm font-mono text-slate-600">{account.slice(0, 6)}...{account.slice(-4)}</span>
+                    <ChevronDown size={14} className="text-slate-400" />
+                  </button>
+
+                  {menuOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                      <div className="p-4 border-b border-slate-50 md:hidden">
+                        <p className="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-2">Current Roles</p>
+                        <div className="flex flex-wrap gap-2">
+                          {roles.isAdmin && <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded border border-slate-200">ADMIN</span>}
+                          {roles.isMinter && <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded border border-green-200">MINTER</span>}
+                          {roles.isRevoker && <span className="px-2 py-0.5 bg-red-50 text-red-700 text-[10px] font-bold rounded border border-red-200">REVOKER</span>}
+                        </div>
+                      </div>
+                      <div className="py-1">
+                        <button onClick={copyAddress} className="w-full px-4 py-2.5 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+                          <Copy size={14} /> Copy Address
+                        </button>
+                        <button onClick={viewOnEtherscan} className="w-full px-4 py-2.5 text-left text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+                          <ExternalLink size={14} /> View on Etherscan
+                        </button>
+                        <button onClick={disconnectWallet} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                          <LogOut size={14} /> Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
