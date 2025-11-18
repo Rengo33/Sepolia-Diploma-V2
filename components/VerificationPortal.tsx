@@ -165,7 +165,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
       <nav className="flex justify-between items-center px-6 py-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
          <div className="flex items-center gap-2">
             <img 
-              src="NovaPrincipalV2.png" 
+              src="/NovaPrincipalV2.png" 
               alt="Nova SBE" 
               className="h-10 w-auto"
             />

@@ -34,7 +34,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
               onClick={() => onConnect(wallets.metaMask)}
               className="w-full px-4 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
             >
-              <img src="public/metamask-logo.svg" alt="MetaMask" className="w-5 h-5" />
+              <img src="/metamask-logo.svg" alt="MetaMask" className="w-5 h-5" />
               MetaMask
             </button>
           )}
