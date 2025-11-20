@@ -198,9 +198,6 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
                 placeholder="ipfs://..."
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono text-sm text-slate-600"
               />
-              <div className="absolute right-3 top-3.5">
-                <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-1 rounded font-bold">JSON</span>
-              </div>
             </div>
             <p className="text-[10px] text-slate-400 mt-1.5">
               The link to the JSON metadata file.
