@@ -1,84 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, CheckCircle, XCircle, Wallet, Loader2, Send, Lock, ShieldAlert, X } from 'lucide-react';
+// 1. ADD THIS IMPORT
+import { WalletModal } from './WalletModal'; 
 
-// --- 1. WALLET MODAL COMPONENT ---
-interface WalletModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConnect: (provider: any) => void;
-  wallets: any;
-}
-
-const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onConnect, wallets }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <h3 className="font-bold text-slate-800">Connect Wallet</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-200 transition-colors text-slate-500">
-            <X size={20} />
-          </button>
-        </div>
-        
-        <div className="p-6 space-y-3">
-          {wallets.metaMask ? (
-            <button
-              onClick={() => onConnect(wallets.metaMask)}
-              className="w-full flex items-center justify-between px-4 py-4 bg-white border border-slate-200 hover:border-orange-500 hover:bg-orange-50 rounded-xl transition-all group shadow-sm"
-            >
-              <span className="font-semibold text-slate-700 group-hover:text-orange-700">MetaMask</span>
-              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
-                <Wallet size={18} />
-              </div>
-            </button>
-          ) : (
-             <a 
-               href="https://metamask.io/download/" 
-               target="_blank" 
-               rel="noreferrer"
-               className="w-full flex items-center justify-between px-4 py-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl opacity-60 hover:opacity-100 transition-all"
-             >
-               <span className="font-medium text-slate-500">Install MetaMask</span>
-               <Wallet size={18} className="text-slate-400" />
-             </a>
-          )}
-
-          {wallets.coinbase && (
-            <button
-              onClick={() => onConnect(wallets.coinbase)}
-              className="w-full flex items-center justify-between px-4 py-4 bg-white border border-slate-200 hover:border-blue-500 hover:bg-blue-50 rounded-xl transition-all group shadow-sm"
-            >
-              <span className="font-semibold text-slate-700 group-hover:text-blue-700">Coinbase Wallet</span>
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                <Wallet size={18} />
-              </div>
-            </button>
-          )}
-
-          {!wallets.metaMask && !wallets.coinbase && wallets.fallback && (
-            <button
-              onClick={() => onConnect(wallets.fallback)}
-              className="w-full flex items-center justify-between px-4 py-4 bg-white border border-slate-200 hover:border-purple-500 hover:bg-purple-50 rounded-xl transition-all group shadow-sm"
-            >
-              <span className="font-semibold text-slate-700 group-hover:text-purple-700">Browser Wallet</span>
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
-                <Wallet size={18} />
-              </div>
-            </button>
-          )}
-        </div>
-        
-        <div className="px-6 py-4 bg-slate-50/50 text-center border-t border-slate-100">
-          <p className="text-xs text-slate-400">
-            By connecting, you agree to our Terms of Service.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
+// --- DELETE THE ENTIRE INLINE WALLET MODAL COMPONENT HERE ---
+// (I have removed the old const WalletModal = ... block)
 
 // --- 2. MAIN COMPONENT ---
 
@@ -472,6 +398,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
         </div>
       </div>
 
+      {/* Now using the imported component! */}
       <WalletModal
         isOpen={isWalletModalOpen}
         onClose={() => setWalletModalOpen(false)}
