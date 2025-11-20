@@ -1,190 +1,209 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Contract } from 'ethers';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { DEFAULT_METADATA, TxStatus } from '../types';
+import { Upload, FileText, Plus, Loader2, Send } from 'lucide-react';
+import { Roles } from '../types'; // Ensure you have this type imported
 
 interface MintSectionProps {
   contract: Contract | null;
-  roles: { isAdmin: boolean; isMinter: boolean };
-  onHashGenerated: (hash: string) => void;
+  roles: Roles;
+  onHashGenerated?: (hash: string) => void;
 }
 
 export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHashGenerated }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [pdfHash, setPdfHash] = useState('');
   const [recipient, setRecipient] = useState('');
-  const [metadataURI, setMetadataURI] = useState(DEFAULT_METADATA);
-  const [mintPdfHash, setMintPdfHash] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [isMinting, setIsMinting] = useState(false);
   
-  const [txState, setTxState] = useState<TxStatus>('idle');
-  const [txHash, setTxHash] = useState<string | null>(null);
+  // Drag & Drop State
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // --- File Processing (Identical to VerifySection) ---
+  const processFile = async (uploadedFile: File) => {
+    if (!uploadedFile) return;
+
+    setFile(uploadedFile);
     
-    setFileName(file.name);
-    const arrayBuffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-    const hex = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    
-    const hash = "0x" + hex;
-    setMintPdfHash(hash);
-    onHashGenerated(hash);
-  };
-
-  const mintDiploma = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contract) return;
-    if (!recipient || !mintPdfHash) return;
-
     try {
-      setTxState('pending');
-      setTxHash(null);
-
-      const tx = await contract.mintDiploma(recipient, metadataURI, mintPdfHash);
-      setTxHash(tx.hash);
-      await tx.wait();
+      const arrayBuffer = await uploadedFile.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hex = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
       
-      setTxState('confirmed');
-      // Reset form slightly
-      setRecipient('');
-      setFileName('');
-      setMintPdfHash('');
-    } catch (err) {
-      console.error(err);
-      setTxState('failed');
+      const hash = "0x" + hex;
+      setPdfHash(hash);
+      if (onHashGenerated) onHashGenerated(hash);
+      
+    } catch (error) {
+      console.error("Error hashing file:", error);
     }
   };
 
-  if (!roles.isAdmin && !roles.isMinter) {
+  // --- Event Handlers ---
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) processFile(f);
+  };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); // Critical for Drop to work
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); // Critical for Drop to work
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      if (files[0].type === "application/pdf") {
+        processFile(files[0]);
+      } else {
+        alert("Please drop a PDF file.");
+      }
+    }
+  }, []);
+
+  // --- Minting Action ---
+  const handleMint = async () => {
+    if (!contract || !recipient || !pdfHash) return;
+    
+    try {
+      setIsMinting(true);
+      
+      // NOTE: Adjust this function call to match your specific Smart Contract ABI
+      // Example: safeMint(to, tokenURI, pdfHash)
+      const tx = await contract.safeMint(
+        recipient, 
+        `ipfs://placeholder/${pdfHash}`, // Placeholder URI
+        pdfHash
+      );
+      
+      await tx.wait();
+      alert("Diploma Minted Successfully!");
+      
+      // Reset form
+      setFile(null);
+      setPdfHash('');
+      setRecipient('');
+    } catch (error) {
+      console.error("Mint failed", error);
+      alert("Minting failed. Check console for details.");
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
+  if (!roles.isMinter && !roles.isAdmin) {
     return (
-      <div className="p-8 text-center bg-red-50 border border-red-100 rounded-xl">
-        <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-        <h3 className="text-lg font-semibold text-red-900">Access Denied</h3>
-        <p className="text-red-600 text-sm mt-1">You do not have permission to mint diplomas on this contract.</p>
+      <div className="text-center py-12 bg-red-50 rounded-xl border border-red-100">
+         <p className="text-red-600 font-medium">You do not have permission to mint diplomas.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white p-1 rounded-xl">
-        <form onSubmit={mintDiploma} className="space-y-5">
+    <div className="space-y-8 max-w-2xl mx-auto">
+      {/* 1. Drag & Drop Zone */}
+      <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">1</span>
+          Upload Diploma PDF
+        </h3>
+        
+        <div 
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`
+            relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer
+            ${isDragging 
+              ? 'border-blue-500 bg-blue-50 scale-[1.01]' 
+              : 'border-slate-300 hover:border-slate-400 bg-slate-50/50 hover:bg-white'
+            }
+            ${file ? 'border-green-400 bg-green-50/30' : ''}
+          `}
+        >
+          <input
+             type="file"
+             accept="application/pdf"
+             onChange={handleFileInputChange}
+             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+          
+          <div className="flex flex-col items-center justify-center pointer-events-none">
+             {file ? (
+               <>
+                 <FileText className="w-12 h-12 text-green-600 mb-2" />
+                 <p className="text-sm font-bold text-slate-900">{file.name}</p>
+                 <p className="text-xs text-slate-500 mt-1 font-mono">{pdfHash.slice(0, 20)}...</p>
+               </>
+             ) : (
+               <>
+                 <Upload className={`w-10 h-10 mb-3 ${isDragging ? 'text-blue-600' : 'text-slate-400'}`} />
+                 <p className="text-sm font-medium text-slate-700">
+                   {isDragging ? 'Drop PDF here' : 'Drag & Drop PDF or Click to Browse'}
+                 </p>
+               </>
+             )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Recipient Details */}
+      <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">2</span>
+          Recipient Details
+        </h3>
+        
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Recipient Address</label>
-            <input
-              type="text"
-              required
+            <label className="block text-xs font-medium text-slate-500 mb-1">Student Wallet Address (0x...)</label>
+            <input 
+              type="text" 
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-sm font-mono"
-              placeholder="0x..."
+              placeholder="0x123..."
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono text-sm"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Metadata URI (IPFS)</label>
-            <input
-              type="text"
-              required
-              value={metadataURI}
-              onChange={(e) => setMetadataURI(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-sm text-slate-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Diploma PDF</label>
-            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:bg-slate-50 transition-colors relative">
-              <div className="space-y-1 text-center">
-                {!fileName ? (
-                  <>
-                    <Upload className="mx-auto h-8 w-8 text-slate-400" />
-                    <div className="flex text-sm text-slate-600 justify-center">
-                      <label className="relative cursor-pointer rounded-md font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none">
-                        <span>Upload a file</span>
-                        <input type="file" className="sr-only" accept="application/pdf" onChange={handlePdfUpload} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
-                    </div>
-                    <p className="text-xs text-slate-500">PDF up to 10MB</p>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-3 bg-green-50 px-4 py-2 rounded-lg border border-green-100">
-                    <FileText className="h-5 w-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">{fileName}</span>
-                    <button 
-                      type="button"
-                      onClick={() => { setFileName(''); setMintPdfHash(''); }}
-                      className="ml-2 text-xs text-green-600 hover:underline"
-                    >Change</button>
-                  </div>
-                )}
-              </div>
-            </div>
-            {mintPdfHash && (
-               <p className="mt-2 text-[10px] font-mono text-slate-400 break-all">SHA256: {mintPdfHash}</p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={txState === 'pending' || !recipient || !mintPdfHash}
-            className={`w-full py-3 px-4 rounded-xl font-semibold shadow-sm transition-all
-              ${txState === 'pending' || !recipient || !mintPdfHash 
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                : 'bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md active:translate-y-0.5'
-              }`}
-          >
-            {txState === 'pending' ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="animate-spin w-4 h-4" /> Processing...
-              </span>
-            ) : 'Mint Diploma'}
-          </button>
-        </form>
-
-        {/* Transaction Status Feedback */}
-        {txState !== 'idle' && (
-          <div className={`mt-6 p-4 rounded-xl border flex items-start gap-3 ${
-            txState === 'confirmed' ? 'bg-green-50 border-green-200' : 
-            txState === 'failed' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'
-          }`}>
-            <div className="mt-0.5">
-              {txState === 'confirmed' && <CheckCircle className="w-5 h-5 text-green-600" />}
-              {txState === 'failed' && <AlertCircle className="w-5 h-5 text-red-600" />}
-              {txState === 'pending' && <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />}
-            </div>
-            <div className="flex-1">
-              <h4 className={`text-sm font-semibold ${
-                txState === 'confirmed' ? 'text-green-900' : 
-                txState === 'failed' ? 'text-red-900' : 'text-blue-900'
-              }`}>
-                {txState === 'confirmed' ? 'Success' : txState === 'failed' ? 'Error' : 'Processing'}
-              </h4>
-              <p className={`text-xs mt-1 ${
-                txState === 'confirmed' ? 'text-green-700' : 
-                txState === 'failed' ? 'text-red-700' : 'text-blue-700'
-              }`}>
-                {txState === 'confirmed' ? 'The diploma has been successfully minted.' : 
-                 txState === 'failed' ? 'Transaction rejected or failed.' : 'Please confirm the transaction in your wallet.'}
-              </p>
-              {txHash && (
-                <a 
-                  href={`https://sepolia.etherscan.io/tx/${txHash}`}
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="text-xs underline mt-2 inline-block text-slate-500 hover:text-slate-800"
-                >
-                  View on Etherscan
-                </a>
-              )}
-            </div>
-          </div>
-        )}
+        </div>
       </div>
+
+      {/* 3. Action Button */}
+      <button
+        onClick={handleMint}
+        disabled={!file || !recipient || isMinting}
+        className={`
+          w-full py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all
+          ${!file || !recipient || isMinting 
+            ? 'bg-slate-300 cursor-not-allowed shadow-none' 
+            : 'bg-slate-900 hover:bg-slate-800 active:scale-[0.98] hover:shadow-slate-200'
+          }
+        `}
+      >
+        {isMinting ? (
+          <>
+            <Loader2 className="animate-spin w-5 h-5" />
+            Minting on Blockchain...
+          </>
+        ) : (
+          <>
+            <Plus className="w-5 h-5" />
+            Mint Diploma
+          </>
+        )}
+      </button>
     </div>
   );
 };

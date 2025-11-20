@@ -14,19 +14,20 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
   const [foundTokenId, setFoundTokenId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   
-  // New State for Drag Visuals
+  // Visual state for drag events
   const [isDragging, setIsDragging] = useState(false);
 
-  // --- 1. Shared File Processing Logic ---
+  // --- 1. File Processing & Auto-Verification Logic ---
   const processFile = async (file: File) => {
     if (!file) return;
 
     setFileName(file.name);
-    // Reset states
     setStatus('idle');
     setFoundTokenId(null);
+    setUploadedPdfHash(''); // Clear previous hash temporarily
     
     try {
+      // 1. Calculate Hash
       const arrayBuffer = await file.arrayBuffer();
       const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
       const hex = Array.from(new Uint8Array(hashBuffer))
@@ -34,81 +35,57 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
         .join("");
       
       const hash = "0x" + hex;
+      
+      // 2. Update State
       setUploadedPdfHash(hash);
       
+      // 3. AUTO-START VERIFICATION
+      // We use the local 'hash' variable to ensure we don't wait for React state update
       if (contract && account) {
-        verifyDiploma(hash);
+        await verifyDiploma(hash);
+      } else {
+        console.warn("Contract or Account not ready, manual scan required");
       }
+
     } catch (error) {
       console.error("Error processing file:", error);
+      setStatus('idle');
     }
   };
 
-  // --- 2. Event Handlers ---
-
-  // Handle standard click upload
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
-
-  // Handle Drag Over (CRITICAL: preventDefault is required here)
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  // Handle Drag Leave
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  // Handle Drop (CRITICAL: preventDefault is required here)
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      // Check if it is a PDF (optional but recommended)
-      if (files[0].type === "application/pdf") {
-        processFile(files[0]);
-      } else {
-        alert("Please drop a PDF file.");
-      }
-    }
-  }, []);
-
-  // --- 3. Verification Logic (Unchanged) ---
-  const verifyDiploma = async (hash: string) => {
+  // --- 2. Verification Logic ---
+  const verifyDiploma = async (hashToVerify: string) => {
     if (!contract || !account) return;
     
     setStatus('scanning');
     setProgress(0);
     
     try {
+      // Get total supply (or nextId) to know how many to loop
       const nextId = await contract.nextId();
       const total = Number(nextId);
       
       let matchFound = false;
 
+      // Loop through all tokens to find a match
+      // Note: In a production app with thousands of NFTs, you would use The Graph (Indexer) instead of a loop
       for (let tokenId = 1; tokenId < total; tokenId++) {
         if (matchFound) break;
         
+        // Visual progress bar update
         setProgress(Math.floor((tokenId / total) * 100));
 
         try {
           const owner = await contract.ownerOf(tokenId);
+          
+          // Optimization: Only check tokens owned by the connected user
           if (owner.toLowerCase() === account.toLowerCase()) {
              const data = await contract.verifyDiploma(tokenId);
              const chainHash = data.pdfHash;
              const isValid = data.valid;
 
-             if (chainHash.toLowerCase() === hash.toLowerCase()) {
+             // Compare the calculated hash with the blockchain hash
+             if (chainHash.toLowerCase() === hashToVerify.toLowerCase()) {
                 setFoundTokenId(tokenId);
                 if (isValid) {
                   setStatus('found');
@@ -116,13 +93,14 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
                   setStatus('revoked');
                 }
                 matchFound = true;
-                return; 
+                return; // Exit loop immediately on match
              }
           }
         } catch (e) {
-          // Token might be burned or invalid, skip
+          // Token might not exist or other error, continue
         }
         
+        // Small non-blocking delay to allow UI to render updates
         if (tokenId % 5 === 0) await new Promise(r => setTimeout(r, 0));
       }
 
@@ -130,17 +108,53 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
         setStatus('not_found');
       }
     } catch (err) {
-      console.error(err);
+      console.error("Verification error:", err);
       setStatus('idle'); 
     }
   };
 
+  // --- 3. Drag & Drop Handlers ---
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      if (files[0].type === "application/pdf") {
+        // This triggers the process -> hash -> auto-verify chain
+        processFile(files[0]);
+      } else {
+        alert("Please drop a PDF file.");
+      }
+    }
+  }, []); // Dependency array is empty as processFile is stable or accessible
+
+  // --- 4. Render ---
   return (
     <div className="space-y-6">
       <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
         <h3 className="text-sm font-semibold text-slate-700 mb-4 uppercase tracking-wider">Upload Document</h3>
         
-        {/* --- Drag and Drop Zone --- */}
+        {/* Drag Zone */}
         <div 
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -165,7 +179,9 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
                <>
                  <FileText className="w-10 h-10 text-blue-600 mb-2" />
                  <p className="text-sm font-medium text-slate-900">{fileName}</p>
-                 <p className="text-xs text-slate-500 mt-1">Click or drag to replace</p>
+                 <p className="text-xs text-slate-500 mt-1">
+                    {status === 'scanning' ? 'Scanning...' : 'Click or drag to replace'}
+                 </p>
                </>
              ) : (
                <>
@@ -179,7 +195,7 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
            </div>
         </div>
 
-        {/* Re-scan button (only shows if file is loaded) */}
+        {/* Manual Re-scan button (Optional, but good UX) */}
         {uploadedPdfHash && status !== 'scanning' && (
            <div className="mt-4 flex justify-end">
              <button 
@@ -192,7 +208,7 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
         )}
       </div>
 
-      {/* --- Status Displays (Unchanged) --- */}
+      {/* --- Status UI --- */}
       {status === 'scanning' && (
         <div className="p-8 border border-slate-100 rounded-xl bg-white flex flex-col items-center justify-center text-center animate-in fade-in">
            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
