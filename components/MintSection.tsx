@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Contract } from 'ethers';
-import { Upload, FileText, Plus, Loader2, Send } from 'lucide-react';
-import { Roles } from '../types'; // Ensure you have this type imported
+import { Upload, FileText, Plus, Loader2, Link as LinkIcon, User } from 'lucide-react';
+import { Roles } from '../types';
 
 interface MintSectionProps {
   contract: Contract | null;
@@ -9,19 +9,23 @@ interface MintSectionProps {
   onHashGenerated?: (hash: string) => void;
 }
 
+// Updated Nova Metadata Link (Preloaded)
+const DEFAULT_NOVA_METADATA = "https://violet-patient-tiger-874.mypinata.cloud/ipfs/bafkreieetfhppak5kdnuljt45hy462yvoghlawzovobtm32m7ifhiqcmtq";
+
 export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHashGenerated }) => {
   const [file, setFile] = useState<File | null>(null);
   const [pdfHash, setPdfHash] = useState('');
   const [recipient, setRecipient] = useState('');
-  const [isMinting, setIsMinting] = useState(false);
   
-  // Drag & Drop State
+  // Metadata state initialized with your specific link
+  const [tokenURI, setTokenURI] = useState(DEFAULT_NOVA_METADATA);
+  
+  const [isMinting, setIsMinting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // --- File Processing (Identical to VerifySection) ---
+  // --- File Processing ---
   const processFile = async (uploadedFile: File) => {
     if (!uploadedFile) return;
-
     setFile(uploadedFile);
     
     try {
@@ -34,7 +38,6 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
       const hash = "0x" + hex;
       setPdfHash(hash);
       if (onHashGenerated) onHashGenerated(hash);
-      
     } catch (error) {
       console.error("Error hashing file:", error);
     }
@@ -47,7 +50,7 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
   };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); // Critical for Drop to work
+    e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   }, []);
@@ -59,7 +62,7 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); // Critical for Drop to work
+    e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
 
@@ -75,26 +78,26 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
 
   // --- Minting Action ---
   const handleMint = async () => {
-    if (!contract || !recipient || !pdfHash) return;
+    if (!contract || !recipient || !pdfHash || !tokenURI) return;
     
     try {
       setIsMinting(true);
       
-      // NOTE: Adjust this function call to match your specific Smart Contract ABI
-      // Example: safeMint(to, tokenURI, pdfHash)
+      // Call Smart Contract: safeMint(to, uri, hash)
       const tx = await contract.safeMint(
         recipient, 
-        `ipfs://placeholder/${pdfHash}`, // Placeholder URI
+        tokenURI, // Uses the input field value (defaults to your link)
         pdfHash
       );
       
       await tx.wait();
       alert("Diploma Minted Successfully!");
       
-      // Reset form
+      // Reset form (Keep the default metadata link)
       setFile(null);
       setPdfHash('');
       setRecipient('');
+      setTokenURI(DEFAULT_NOVA_METADATA); 
     } catch (error) {
       console.error("Mint failed", error);
       alert("Minting failed. Check console for details.");
@@ -113,6 +116,7 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
 
   return (
     <div className="space-y-8 max-w-2xl mx-auto">
+      
       {/* 1. Drag & Drop Zone */}
       <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
         <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider flex items-center gap-2">
@@ -159,23 +163,48 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
         </div>
       </div>
 
-      {/* 2. Recipient Details */}
+      {/* 2. Diploma Details (Recipient + Metadata) */}
       <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
         <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider flex items-center gap-2">
           <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">2</span>
-          Recipient Details
+          Diploma Details
         </h3>
         
-        <div className="space-y-4">
+        <div className="space-y-5">
+          {/* Recipient Field */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Student Wallet Address (0x...)</label>
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+              <User size={12} /> Recipient Wallet
+            </label>
             <input 
               type="text" 
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              placeholder="0x123..."
+              placeholder="0x..."
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono text-sm"
             />
+          </div>
+
+          {/* Metadata URI Field */}
+          <div>
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+              <LinkIcon size={12} /> Metadata URI
+            </label>
+            <div className="relative">
+              <input 
+                type="text" 
+                value={tokenURI}
+                onChange={(e) => setTokenURI(e.target.value)}
+                placeholder="ipfs://..."
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono text-sm text-slate-600"
+              />
+              <div className="absolute right-3 top-3.5">
+                <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-1 rounded font-bold">JSON</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1.5">
+              The link to the JSON metadata file.
+            </p>
           </div>
         </div>
       </div>
@@ -183,10 +212,10 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
       {/* 3. Action Button */}
       <button
         onClick={handleMint}
-        disabled={!file || !recipient || isMinting}
+        disabled={!file || !recipient || !tokenURI || isMinting}
         className={`
           w-full py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all
-          ${!file || !recipient || isMinting 
+          ${!file || !recipient || !tokenURI || isMinting 
             ? 'bg-slate-300 cursor-not-allowed shadow-none' 
             : 'bg-slate-900 hover:bg-slate-800 active:scale-[0.98] hover:shadow-slate-200'
           }
