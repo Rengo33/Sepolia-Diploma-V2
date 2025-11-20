@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Contract } from 'ethers';
-import { Upload, FileText, Plus, Loader2, Link as LinkIcon, User } from 'lucide-react';
+import { Upload, FileText, Plus, Loader2, Link as LinkIcon, User, Check } from 'lucide-react';
 import { Roles } from '../types';
 
 interface MintSectionProps {
@@ -21,6 +21,7 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
   const [tokenURI, setTokenURI] = useState(DEFAULT_NOVA_METADATA);
   
   const [isMinting, setIsMinting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false); // New state for success feedback
   const [isDragging, setIsDragging] = useState(false);
 
   // --- File Processing ---
@@ -84,7 +85,6 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
       setIsMinting(true);
       
       // Call Smart Contract: mintDiploma(student, metadataURI, pdfHash)
-      // FIXED: Changed from safeMint to mintDiploma to match your Solidity contract
       const tx = await contract.mintDiploma(
         recipient, 
         tokenURI, 
@@ -92,13 +92,19 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
       );
       
       await tx.wait();
-      alert("Diploma Minted Successfully!");
       
-      // Reset form (Keep the default metadata link)
-      setFile(null);
-      setPdfHash('');
-      setRecipient('');
-      setTokenURI(DEFAULT_NOVA_METADATA); 
+      // Success State Handling
+      setIsSuccess(true);
+      
+      // Reset form after 3 seconds so user sees the success message
+      setTimeout(() => {
+        setFile(null);
+        setPdfHash('');
+        setRecipient('');
+        setTokenURI(DEFAULT_NOVA_METADATA); 
+        setIsSuccess(false);
+      }, 3000);
+
     } catch (error) {
       console.error("Mint failed", error);
       alert("Minting failed. Check console for details. Ensure you have updated your ABI JSON.");
@@ -114,6 +120,17 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
       </div>
     );
   }
+
+  // Determine button styling based on state
+  const getButtonClass = () => {
+    if (isSuccess) {
+      return 'bg-green-600 hover:bg-green-700 shadow-green-200';
+    }
+    if (!file || !recipient || !tokenURI || isMinting) {
+      return 'bg-slate-300 cursor-not-allowed shadow-none';
+    }
+    return 'bg-slate-900 hover:bg-slate-800 active:scale-[0.98] hover:shadow-slate-200';
+  };
 
   return (
     <div className="space-y-8 max-w-2xl mx-auto">
@@ -210,16 +227,18 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
       {/* 3. Action Button */}
       <button
         onClick={handleMint}
-        disabled={!file || !recipient || !tokenURI || isMinting}
+        disabled={(!file || !recipient || !tokenURI || isMinting) && !isSuccess}
         className={`
           w-full py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all
-          ${!file || !recipient || !tokenURI || isMinting 
-            ? 'bg-slate-300 cursor-not-allowed shadow-none' 
-            : 'bg-slate-900 hover:bg-slate-800 active:scale-[0.98] hover:shadow-slate-200'
-          }
+          ${getButtonClass()}
         `}
       >
-        {isMinting ? (
+        {isSuccess ? (
+          <>
+            <Check className="w-5 h-5" />
+            Minted Successfully!
+          </>
+        ) : isMinting ? (
           <>
             <Loader2 className="animate-spin w-5 h-5" />
             Minting on Blockchain...
