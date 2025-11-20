@@ -274,22 +274,33 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
       
       {/* Navigation Bar */}
       <nav className="flex justify-between items-center px-6 py-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
-         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button 
               onClick={() => window.location.href = '/'} 
               className="hover:opacity-70 transition-opacity focus:outline-none cursor-pointer"
               title="Home"
             >
-              {/* Logo Placeholder */}
+              {/* Logo Placeholder - Left Side */}
               <div className="h-10 w-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">N</div>
             </button>
-         </div>
-         <button
-           onClick={onAdminEnter}
-           className="text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5"
-         >
-           <Lock size={12} /> Admin Portal
-         </button>
+          </div>
+
+          {/* Right Side Nav Items */}
+          <div className="flex items-center gap-6">
+            <button
+                onClick={onAdminEnter}
+                className="text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5"
+            >
+                <Lock size={12} /> Admin Portal
+            </button>
+
+            {/* Nova Logo - Top Right */}
+            <img 
+                src="NovaPrincipalV2.png" 
+                alt="Nova Principal Logo" 
+                className="h-12 w-auto object-contain"
+            />
+          </div>
       </nav>
 
       <div className="flex-1 py-12 px-4 sm:px-6">
@@ -418,13 +429,13 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
                         )}
 
                         {verifyStatus === 'fail' && (
-                           <div className="flex items-center gap-3 px-5 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 animate-in slide-in-from-bottom-2 w-full shadow-sm">
-                            <div className="bg-slate-200 p-1.5 rounded-full">
-                                <XCircle size={18} className="text-slate-500" />
+                           <div className="flex items-center gap-3 px-5 py-3 bg-red-50 border border-red-100 rounded-xl text-red-800 animate-in slide-in-from-bottom-2 w-full shadow-sm">
+                            <div className="bg-red-100 p-1.5 rounded-full">
+                                <XCircle size={18} className="text-red-600" />
                             </div>
                             <div className="text-left flex-1">
-                              <p className="text-sm font-bold text-slate-900">Verification Failed</p>
-                              <p className="text-xs text-slate-600 mt-0.5">No matching record found for this document in the connected wallet.</p>
+                              <p className="text-sm font-bold text-red-900">Verification Failed</p>
+                              <p className="text-xs text-red-700 mt-0.5">No matching record found for this document in the connected wallet.</p>
                             </div>
                           </div>
                         )}
