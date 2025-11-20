@@ -1,12 +1,100 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserProvider, Contract } from 'ethers';
-import { Upload, CheckCircle, XCircle, Wallet, Loader2, Send, Lock, ShieldAlert } from 'lucide-react';
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from '../types';
-import { WalletModal } from './WalletModal';
+import { Upload, CheckCircle, XCircle, Wallet, Loader2, Send, Lock, ShieldAlert, X } from 'lucide-react';
+
+// --- 1. WALLET MODAL COMPONENT (Inlined) ---
+interface WalletModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConnect: (provider: any) => void;
+  wallets: any;
+}
+
+const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onConnect, wallets }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <h3 className="font-bold text-slate-800">Connect Wallet</h3>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-200 transition-colors text-slate-500">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-3">
+          {wallets.metaMask ? (
+            <button
+              onClick={() => onConnect(wallets.metaMask)}
+              className="w-full flex items-center justify-between px-4 py-4 bg-white border border-slate-200 hover:border-orange-500 hover:bg-orange-50 rounded-xl transition-all group shadow-sm"
+            >
+              <span className="font-semibold text-slate-700 group-hover:text-orange-700">MetaMask</span>
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                <Wallet size={18} />
+              </div>
+            </button>
+          ) : (
+             <a 
+               href="https://metamask.io/download/" 
+               target="_blank" 
+               rel="noreferrer"
+               className="w-full flex items-center justify-between px-4 py-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl opacity-60 hover:opacity-100 transition-all"
+             >
+               <span className="font-medium text-slate-500">Install MetaMask</span>
+               <Wallet size={18} className="text-slate-400" />
+             </a>
+          )}
+
+          {wallets.coinbase && (
+            <button
+              onClick={() => onConnect(wallets.coinbase)}
+              className="w-full flex items-center justify-between px-4 py-4 bg-white border border-slate-200 hover:border-blue-500 hover:bg-blue-50 rounded-xl transition-all group shadow-sm"
+            >
+              <span className="font-semibold text-slate-700 group-hover:text-blue-700">Coinbase Wallet</span>
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                <Wallet size={18} />
+              </div>
+            </button>
+          )}
+
+          {!wallets.metaMask && !wallets.coinbase && wallets.fallback && (
+            <button
+              onClick={() => onConnect(wallets.fallback)}
+              className="w-full flex items-center justify-between px-4 py-4 bg-white border border-slate-200 hover:border-purple-500 hover:bg-purple-50 rounded-xl transition-all group shadow-sm"
+            >
+              <span className="font-semibold text-slate-700 group-hover:text-purple-700">Browser Wallet</span>
+              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                <Wallet size={18} />
+              </div>
+            </button>
+          )}
+        </div>
+        
+        <div className="px-6 py-4 bg-slate-50/50 text-center border-t border-slate-100">
+          <p className="text-xs text-slate-400">
+            By connecting, you agree to our Terms of Service.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- 2. MAIN COMPONENT ---
 
 interface VerificationPortalProps {
   onAdminEnter: () => void;
 }
+
+// ABI Definition
+const CONTRACT_ABI = [
+  "function ownerOf(uint256 tokenId) public view returns (address)",
+  "function getPdfHash(uint256 tokenId) public view returns (string)",
+  "function nextId() external view returns (uint256)",
+  "function verifyDiploma(uint256 tokenId) external view returns (address _issuer, address holder, string memory metadataURI, string memory pdfHash, bool valid)"
+];
+
+const CONTRACT_ADDRESS = "0x1E0AA66Ad5B46e2af5a5587BEcf7Fb15b6E043fc";
 
 export default function VerificationPortal({ onAdminEnter }: VerificationPortalProps) {
   // Form Data
@@ -14,10 +102,11 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // Wallet & Contract
-  const [provider, setProvider] = useState<BrowserProvider | undefined>(undefined);
+  const [provider, setProvider] = useState<any>(undefined);
   const [signer, setSigner] = useState<any>(undefined);
   const [account, setAccount] = useState<string | undefined>(undefined);
-  const [contract, setContract] = useState<Contract | null>(null);
+  const [contract, setContract] = useState<any>(null);
+  const [ethersLib, setEthersLib] = useState<any>(null);
 
   // Verification State
   const [uploadedPdfHash, setUploadedPdfHash] = useState('');
@@ -29,13 +118,33 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
   const [isWalletModalOpen, setWalletModalOpen] = useState(false);
   const [wallets, setWallets] = useState<any>({});
 
+  // --- Load Ethers.js from CDN ---
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      const injected = window.ethereum.providers || [window.ethereum];
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js";
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).ethers) {
+        setEthersLib((window as any).ethers);
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  // Detect Wallets
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      const injected = (window as any).ethereum.providers || [(window as any).ethereum];
       setWallets({
         metaMask: injected.find((p: any) => p.isMetaMask),
         coinbase: injected.find((p: any) => p.isCoinbaseWallet),
-        fallback: window.ethereum
+        fallback: (window as any).ethereum
       });
     }
   }, []);
@@ -48,9 +157,13 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
   }, [account, uploadedPdfHash, contract]);
 
   const connectWallet = async (providerObject: any) => {
+    if (!ethersLib) {
+      alert("Ethers library is still loading, please wait a moment...");
+      return;
+    }
     try {
       setWalletModalOpen(false);
-      const browserProvider = new BrowserProvider(providerObject);
+      const browserProvider = new ethersLib.BrowserProvider(providerObject);
       await providerObject.request({ method: "eth_requestAccounts" });
       const s = await browserProvider.getSigner();
       const addr = await s.getAddress();
@@ -59,7 +172,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
       setSigner(s);
       setAccount(addr);
 
-      const c = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, s);
+      const c = new ethersLib.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, s);
       setContract(c);
 
     } catch (err) {
@@ -90,32 +203,30 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
     
     setVerifyStatus('verifying');
     try {
-      // Note: Using nextId() to scan. In production, use an indexer or event logs for efficiency.
       const nextId = await contract.nextId();
       const total = Number(nextId);
       
       let matchFound = false;
 
-      for (let tokenId = 1; tokenId < total; tokenId++) {
+      // Loop Logic: tokenId <= total (Inclusive)
+      for (let tokenId = 1; tokenId <= total; tokenId++) {
         if (matchFound) break;
 
         try {
           const owner = await contract.ownerOf(tokenId);
+          
           if (owner.toLowerCase() === account.toLowerCase()) {
-            // Use verifyDiploma to check validity as well
-            const data = await contract.verifyDiploma(tokenId);
-            const chainHash = data.pdfHash;
-            const isValid = data.valid;
-
+            const chainHash = await contract.getPdfHash(tokenId);
+            
             if (chainHash.toLowerCase() === hash.toLowerCase()) {
               setVerifyMatchId(tokenId);
-              setVerifyStatus(isValid ? 'success' : 'revoked');
+              setVerifyStatus('success');
               matchFound = true;
               return;
             }
           }
         } catch (e) {
-          // ignore burned/invalid
+          console.log(`Skipping Token ${tokenId}`, e);
         }
         
         if (tokenId % 5 === 0) await new Promise(r => setTimeout(r, 0));
@@ -148,7 +259,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
             Thank you, {formData.name}. Your details and verified diploma have been securely recorded.
           </p>
           <button 
-            onClick={() => window.location.href = '/'}
+            onClick={() => window.location.reload()}
             className="px-6 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
           >
             Verify Another Document
@@ -169,11 +280,8 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
               className="hover:opacity-70 transition-opacity focus:outline-none cursor-pointer"
               title="Home"
             >
-              <img 
-                src="/NovaPrincipalV2.png" 
-                alt="Nova SBE" 
-                className="h-10 w-auto"
-              />
+              {/* Logo Placeholder */}
+              <div className="h-10 w-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">N</div>
             </button>
          </div>
          <button
@@ -259,9 +367,9 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
                   </div>
 
                   {uploadedPdfHash && (
-                     <div className="text-center animate-in fade-in">
-                       <p className="text-[10px] font-mono text-slate-400 bg-slate-50 inline-block px-2 py-1 rounded">Hash: {uploadedPdfHash.slice(0, 12)}...{uploadedPdfHash.slice(-12)}</p>
-                     </div>
+                      <div className="text-center animate-in fade-in">
+                        <p className="text-[10px] font-mono text-slate-400 bg-slate-50 inline-block px-2 py-1 rounded">Hash: {uploadedPdfHash.slice(0, 12)}...{uploadedPdfHash.slice(-12)}</p>
+                      </div>
                   )}
 
                   {/* Verification Status Area */}
@@ -351,7 +459,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
           </div>
           
           <div className="text-center mt-8 text-slate-400 text-xs">
-             © 2025 Nova School of Business and Economics
+              © 2025 Nova School of Business and Economics
           </div>
           
         </div>
