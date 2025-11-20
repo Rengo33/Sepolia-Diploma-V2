@@ -1,35 +1,72 @@
 import React, { useState, useCallback } from 'react';
-import { Contract, keccak256, toUtf8Bytes } from 'ethers';
-import { UploadCloud, FileText, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Contract } from 'ethers';
+import { Upload, Search, CheckCircle, XCircle, Loader2, ShieldAlert, FileText } from 'lucide-react';
 
-interface VerifyProps {
+interface VerifySectionProps {
   contract: Contract | null;
-  account?: string;
+  account: string | undefined;
 }
 
-export function VerifySection({ contract, account }: VerifyProps) {
-  const [fileHash, setFileHash] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account }) => {
+  const [uploadedPdfHash, setUploadedPdfHash] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [status, setStatus] = useState<'idle' | 'scanning' | 'found' | 'revoked' | 'not_found'>('idle');
+  const [foundTokenId, setFoundTokenId] = useState<number | null>(null);
+  const [progress, setProgress] = useState(0);
+  
+  // New State for Drag Visuals
   const [isDragging, setIsDragging] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
 
-  // --- DRAG AND DROP HANDLERS ---
+  // --- 1. Shared File Processing Logic ---
+  const processFile = async (file: File) => {
+    if (!file) return;
 
-  // 1. CRITICAL: preventDefault allows the drop
+    setFileName(file.name);
+    // Reset states
+    setStatus('idle');
+    setFoundTokenId(null);
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hex = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      
+      const hash = "0x" + hex;
+      setUploadedPdfHash(hash);
+      
+      if (contract && account) {
+        verifyDiploma(hash);
+      }
+    } catch (error) {
+      console.error("Error processing file:", error);
+    }
+  };
+
+  // --- 2. Event Handlers ---
+
+  // Handle standard click upload
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  // Handle Drag Over (CRITICAL: preventDefault is required here)
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   }, []);
 
+  // Handle Drag Leave
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   }, []);
 
-  // 2. Handle the Drop
+  // Handle Drop (CRITICAL: preventDefault is required here)
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -37,139 +74,181 @@ export function VerifySection({ contract, account }: VerifyProps) {
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      processFile(files[0]);
+      // Check if it is a PDF (optional but recommended)
+      if (files[0].type === "application/pdf") {
+        processFile(files[0]);
+      } else {
+        alert("Please drop a PDF file.");
+      }
     }
   }, []);
 
-  // 3. Handle standard file input click
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processFile(e.target.files[0]);
-    }
-  };
-
-  // --- FILE PROCESSING LOGIC ---
-  const processFile = async (file: File) => {
-    setFileName(file.name);
-    setVerificationStatus('idle');
-    setErrorMessage('');
-
+  // --- 3. Verification Logic (Unchanged) ---
+  const verifyDiploma = async (hash: string) => {
+    if (!contract || !account) return;
+    
+    setStatus('scanning');
+    setProgress(0);
+    
     try {
-      const buffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(buffer);
+      const nextId = await contract.nextId();
+      const total = Number(nextId);
       
-      // Note: This is a simple hash. For PDF contents, usually you hash the raw bytes.
-      // Ensure this matches EXACTLY how you minted it.
-      const hash = keccak256(uint8Array);
-      setFileHash(hash);
-    } catch (error) {
-      console.error("Error hashing file:", error);
-      setErrorMessage("Failed to process file.");
-    }
-  };
+      let matchFound = false;
 
-  const verifyDocument = async () => {
-    if (!contract || !fileHash) return;
-    setVerificationStatus('loading');
+      for (let tokenId = 1; tokenId < total; tokenId++) {
+        if (matchFound) break;
+        
+        setProgress(Math.floor((tokenId / total) * 100));
 
-    try {
-      // Assuming your contract has a isValid(bytes32) function
-      const isValid = await contract.isValid(fileHash); // Adjust function name to your contract
-      setVerificationStatus(isValid ? 'valid' : 'invalid');
-    } catch (error) {
-      console.error("Verification failed", error);
-      setVerificationStatus('invalid'); // Or handle error state specifically
-      setErrorMessage("Error connecting to contract.");
+        try {
+          const owner = await contract.ownerOf(tokenId);
+          if (owner.toLowerCase() === account.toLowerCase()) {
+             const data = await contract.verifyDiploma(tokenId);
+             const chainHash = data.pdfHash;
+             const isValid = data.valid;
+
+             if (chainHash.toLowerCase() === hash.toLowerCase()) {
+                setFoundTokenId(tokenId);
+                if (isValid) {
+                  setStatus('found');
+                } else {
+                  setStatus('revoked');
+                }
+                matchFound = true;
+                return; 
+             }
+          }
+        } catch (e) {
+          // Token might be burned or invalid, skip
+        }
+        
+        if (tokenId % 5 === 0) await new Promise(r => setTimeout(r, 0));
+      }
+
+      if (!matchFound) {
+        setStatus('not_found');
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('idle'); 
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-8 text-center">
-        <h2 className="text-2xl font-bold text-slate-900">Verify Diploma</h2>
-        <p className="text-slate-500 mt-2">Drag and drop a document to verify its authenticity on the blockchain.</p>
-      </div>
-
-      {/* --- DRAG AND DROP ZONE --- */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`
-          relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-200 ease-in-out cursor-pointer
-          ${isDragging 
-            ? 'border-blue-500 bg-blue-50 scale-[1.02]' 
-            : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
-          }
-        `}
-      >
-        <input 
-          type="file" 
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-          onChange={handleFileInput}
-          accept=".pdf,.png,.jpg,.json" // Adjust based on your needs
-        />
+    <div className="space-y-6">
+      <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+        <h3 className="text-sm font-semibold text-slate-700 mb-4 uppercase tracking-wider">Upload Document</h3>
         
-        <div className="flex flex-col items-center justify-center pointer-events-none">
-          {fileName ? (
-            <>
-              <FileText className="w-12 h-12 text-blue-600 mb-3" />
-              <p className="text-sm font-medium text-slate-900">{fileName}</p>
-              <p className="text-xs text-slate-500 mt-1 break-all">{fileHash ? `${fileHash.slice(0, 20)}...` : 'Calculating hash...'}</p>
-            </>
-          ) : (
-            <>
-              <UploadCloud className={`w-12 h-12 mb-3 ${isDragging ? 'text-blue-600' : 'text-slate-400'}`} />
-              <p className="text-lg font-medium text-slate-700">
-                {isDragging ? 'Drop file now' : 'Click or Drag file here'}
-              </p>
-              <p className="text-sm text-slate-500 mt-1">Supports PDF, JPG, PNG</p>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* --- ACTIONS --- */}
-      <div className="mt-6 flex justify-center">
-        <button
-          onClick={verifyDocument}
-          disabled={!fileHash || verificationStatus === 'loading' || !contract}
+        {/* --- Drag and Drop Zone --- */}
+        <div 
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
           className={`
-            flex items-center gap-2 px-8 py-3 rounded-lg font-semibold text-white transition-all
-            ${!fileHash || !contract ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800 shadow-lg active:scale-95'}
+            relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200
+            ${isDragging 
+              ? 'border-blue-500 bg-blue-50 scale-[1.01]' 
+              : 'border-slate-300 hover:border-slate-400 bg-white'
+            }
           `}
         >
-          {verificationStatus === 'loading' ? <Loader2 className="animate-spin" /> : null}
-          Verify Document
-        </button>
+           <input
+             type="file"
+             accept="application/pdf"
+             onChange={handleFileInputChange}
+             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+           />
+           
+           <div className="flex flex-col items-center justify-center pointer-events-none">
+             {fileName ? (
+               <>
+                 <FileText className="w-10 h-10 text-blue-600 mb-2" />
+                 <p className="text-sm font-medium text-slate-900">{fileName}</p>
+                 <p className="text-xs text-slate-500 mt-1">Click or drag to replace</p>
+               </>
+             ) : (
+               <>
+                 <Upload className={`w-10 h-10 mb-3 ${isDragging ? 'text-blue-600' : 'text-slate-400'}`} />
+                 <p className="text-sm font-medium text-slate-700">
+                   {isDragging ? 'Drop PDF here' : 'Click to upload or drag and drop'}
+                 </p>
+                 <p className="text-xs text-slate-500 mt-1">PDF files only</p>
+               </>
+             )}
+           </div>
+        </div>
+
+        {/* Re-scan button (only shows if file is loaded) */}
+        {uploadedPdfHash && status !== 'scanning' && (
+           <div className="mt-4 flex justify-end">
+             <button 
+               onClick={() => verifyDiploma(uploadedPdfHash)}
+               className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-md active:scale-95"
+             >
+               Re-Scan Document
+             </button>
+           </div>
+        )}
       </div>
 
-      {/* --- RESULTS --- */}
-      {verificationStatus !== 'idle' && verificationStatus !== 'loading' && (
-        <div className={`mt-8 p-4 rounded-lg border flex items-start gap-3 ${
-          verificationStatus === 'valid' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-        }`}>
-          {verificationStatus === 'valid' ? (
-            <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
-          ) : (
-            <XCircle className="w-6 h-6 text-red-600 shrink-0" />
-          )}
-          <div>
-            <h3 className={`font-bold ${
-              verificationStatus === 'valid' ? 'text-green-800' : 'text-red-800'
-            }`}>
-              {verificationStatus === 'valid' ? 'Document Verified' : 'Invalid Document'}
-            </h3>
-            <p className={`text-sm mt-1 ${
-              verificationStatus === 'valid' ? 'text-green-700' : 'text-red-700'
-            }`}>
-              {verificationStatus === 'valid' 
-                ? 'This document hash exists in the smart contract registry.' 
-                : 'This document hash was not found in the registry.'}
-            </p>
-          </div>
+      {/* --- Status Displays (Unchanged) --- */}
+      {status === 'scanning' && (
+        <div className="p-8 border border-slate-100 rounded-xl bg-white flex flex-col items-center justify-center text-center animate-in fade-in">
+           <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+           <h4 className="text-lg font-medium text-slate-800">Verifying Authenticity...</h4>
+           <p className="text-slate-500 text-sm mt-1">Checking blockchain records ({progress}%)</p>
+           <div className="w-64 h-1.5 bg-slate-100 rounded-full mt-4 overflow-hidden">
+              <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${progress}%`}}></div>
+           </div>
+        </div>
+      )}
+
+      {status === 'found' && (
+        <div className="p-8 border border-green-200 bg-green-50/50 rounded-xl flex flex-col items-center justify-center text-center animate-in zoom-in-95">
+           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+             <CheckCircle className="w-8 h-8 text-green-600" />
+           </div>
+           <h4 className="text-xl font-bold text-green-900">Verified Authentic</h4>
+           <p className="text-green-800 text-sm mt-2 max-w-md">
+             The uploaded document matches a valid digital diploma held by your account.
+           </p>
+           <div className="mt-4 px-4 py-2 bg-white rounded-full border border-green-200 text-xs font-mono text-green-700 shadow-sm">
+             Token ID: #{foundTokenId}
+           </div>
+        </div>
+      )}
+
+      {status === 'revoked' && (
+        <div className="p-8 border border-red-200 bg-red-50/50 rounded-xl flex flex-col items-center justify-center text-center animate-in zoom-in-95">
+           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+             <ShieldAlert className="w-8 h-8 text-red-600" />
+           </div>
+           <h4 className="text-xl font-bold text-red-900">Diploma Revoked</h4>
+           <p className="text-red-800 text-sm mt-2 max-w-md">
+             This document matches a record on the blockchain (Token #{foundTokenId}), but it has been officially revoked by the issuer.
+           </p>
+        </div>
+      )}
+
+      {status === 'not_found' && (
+        <div className="p-8 border border-slate-200 bg-slate-50 rounded-xl flex flex-col items-center justify-center text-center animate-in zoom-in-95">
+           <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+             <XCircle className="w-8 h-8 text-slate-500" />
+           </div>
+           <h4 className="text-xl font-bold text-slate-700">Verification Failed</h4>
+           <p className="text-slate-600 text-sm mt-2 max-w-md">
+             No matching digital diploma was found in the connected wallet for this specific file.
+           </p>
+        </div>
+      )}
+      
+      {status === 'idle' && !uploadedPdfHash && (
+        <div className="text-center py-12 text-slate-400">
+          <Search className="w-12 h-12 mx-auto mb-3 opacity-20" />
+          <p>Upload a PDF to begin verification</p>
         </div>
       )}
     </div>
   );
-}
+};
