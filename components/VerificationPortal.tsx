@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, CheckCircle, XCircle, Wallet, Loader2, Send, Lock, ShieldAlert, X } from 'lucide-react';
 
-// --- 1. WALLET MODAL COMPONENT (Inlined) ---
+// --- 1. WALLET MODAL COMPONENT ---
 interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -280,27 +280,22 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
               className="hover:opacity-70 transition-opacity focus:outline-none cursor-pointer"
               title="Home"
             >
-              {/* Logo Placeholder - Left Side */}
-              <div className="h-10 w-10 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">N</div>
-            </button>
-          </div>
-
-          {/* Right Side Nav Items */}
-          <div className="flex items-center gap-6">
-            <button
-                onClick={onAdminEnter}
-                className="text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5"
-            >
-                <Lock size={12} /> Admin Portal
-            </button>
-
-            {/* Nova Logo - Top Right */}
-            <img 
+              {/* LOGO ON THE LEFT */}
+              <img 
                 src="NovaPrincipalV2.png" 
-                alt="Nova Principal Logo" 
+                alt="Nova Logo" 
                 className="h-12 w-auto object-contain"
-            />
+              />
+            </button>
           </div>
+
+          {/* Right Side Admin Button */}
+          <button
+            onClick={onAdminEnter}
+            className="text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5"
+          >
+            <Lock size={12} /> Admin Portal
+          </button>
       </nav>
 
       <div className="flex-1 py-12 px-4 sm:px-6">
@@ -428,6 +423,7 @@ export default function VerificationPortal({ onAdminEnter }: VerificationPortalP
                           </div>
                         )}
 
+                        {/* RED ERROR MESSAGE for FAILED VERIFICATION */}
                         {verifyStatus === 'fail' && (
                            <div className="flex items-center gap-3 px-5 py-3 bg-red-50 border border-red-100 rounded-xl text-red-800 animate-in slide-in-from-bottom-2 w-full shadow-sm">
                             <div className="bg-red-100 p-1.5 rounded-full">
