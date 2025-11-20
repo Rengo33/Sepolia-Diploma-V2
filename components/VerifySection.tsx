@@ -68,8 +68,9 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
       let matchFound = false;
 
       // Loop through all tokens to find a match
-      // Note: In a production app with thousands of NFTs, you would use The Graph (Indexer) instead of a loop
-      for (let tokenId = 1; tokenId < total; tokenId++) {
+      // FIX: Changed condition from 'tokenId < total' to 'tokenId <= total'
+      // Otherwise, the loop stops before checking the most recent diploma.
+      for (let tokenId = 1; tokenId <= total; tokenId++) {
         if (matchFound) break;
         
         // Visual progress bar update
@@ -86,14 +87,14 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
 
              // Compare the calculated hash with the blockchain hash
              if (chainHash.toLowerCase() === hashToVerify.toLowerCase()) {
-                setFoundTokenId(tokenId);
-                if (isValid) {
-                  setStatus('found');
-                } else {
-                  setStatus('revoked');
-                }
-                matchFound = true;
-                return; // Exit loop immediately on match
+               setFoundTokenId(tokenId);
+               if (isValid) {
+                 setStatus('found');
+               } else {
+                 setStatus('revoked');
+               }
+               matchFound = true;
+               return; // Exit loop immediately on match
              }
           }
         } catch (e) {
