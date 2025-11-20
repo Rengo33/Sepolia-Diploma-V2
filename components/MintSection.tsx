@@ -83,10 +83,11 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
     try {
       setIsMinting(true);
       
-      // Call Smart Contract: safeMint(to, uri, hash)
-      const tx = await contract.safeMint(
+      // Call Smart Contract: mintDiploma(student, metadataURI, pdfHash)
+      // FIXED: Changed from safeMint to mintDiploma to match your Solidity contract
+      const tx = await contract.mintDiploma(
         recipient, 
-        tokenURI, // Uses the input field value (defaults to your link)
+        tokenURI, 
         pdfHash
       );
       
@@ -100,7 +101,7 @@ export const MintSection: React.FC<MintSectionProps> = ({ contract, roles, onHas
       setTokenURI(DEFAULT_NOVA_METADATA); 
     } catch (error) {
       console.error("Mint failed", error);
-      alert("Minting failed. Check console for details.");
+      alert("Minting failed. Check console for details. Ensure you have updated your ABI JSON.");
     } finally {
       setIsMinting(false);
     }
