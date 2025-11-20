@@ -17,91 +17,48 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
   // Visual state for drag events
   const [isDragging, setIsDragging] = useState(false);
 
-  // --- 1. File Processing & Auto-Verification Logic ---
-  const processFile = async (file: File) => {
-    if (!file) return;
-
-    setFileName(file.name);
-    setStatus('idle');
-    setFoundTokenId(null);
-    setUploadedPdfHash(''); // Clear previous hash temporarily
-    
-    try {
-      // 1. Calculate Hash
-      const arrayBuffer = await file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-      const hex = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-      
-      const hash = "0x" + hex;
-      
-      // 2. Update State
-      setUploadedPdfHash(hash);
-      
-      // 3. AUTO-START VERIFICATION
-      // We use the local 'hash' variable to ensure we don't wait for React state update
-      if (contract && account) {
-        await verifyDiploma(hash);
-      } else {
-        console.warn("Contract or Account not ready, manual scan required");
-      }
-
-    } catch (error) {
-      console.error("Error processing file:", error);
-      setStatus('idle');
-    }
-  };
-
-  // --- 2. Verification Logic ---
-  const verifyDiploma = async (hashToVerify: string) => {
+  // --- 1. Verification Logic (Wrapped in useCallback) ---
+  const verifyDiploma = useCallback(async (hashToVerify: string) => {
     if (!contract || !account) return;
     
     setStatus('scanning');
     setProgress(0);
     
     try {
-      // Get total supply (or nextId) to know how many to loop
+      // Get total supply (or nextId)
       const nextId = await contract.nextId();
       const total = Number(nextId);
       
       let matchFound = false;
 
-      // Loop through all tokens to find a match
-      // FIX: Changed condition from 'tokenId < total' to 'tokenId <= total'
-      // Otherwise, the loop stops before checking the most recent diploma.
+      // Loop through tokens
       for (let tokenId = 1; tokenId <= total; tokenId++) {
         if (matchFound) break;
         
-        // Visual progress bar update
+        // Visual progress
         setProgress(Math.floor((tokenId / total) * 100));
 
         try {
           const owner = await contract.ownerOf(tokenId);
           
-          // Optimization: Only check tokens owned by the connected user
+          // Check tokens owned by connected user
           if (owner.toLowerCase() === account.toLowerCase()) {
              const data = await contract.verifyDiploma(tokenId);
              const chainHash = data.pdfHash;
              const isValid = data.valid;
 
-             // Compare the calculated hash with the blockchain hash
              if (chainHash.toLowerCase() === hashToVerify.toLowerCase()) {
                setFoundTokenId(tokenId);
-               if (isValid) {
-                 setStatus('found');
-               } else {
-                 setStatus('revoked');
-               }
+               setStatus(isValid ? 'found' : 'revoked');
                matchFound = true;
-               return; // Exit loop immediately on match
+               return; 
              }
           }
         } catch (e) {
-          // Token might not exist or other error, continue
+          // ignore errors for non-existent/burned tokens
         }
         
-        // Small non-blocking delay to allow UI to render updates
+        // Non-blocking delay for UI updates
         if (tokenId % 5 === 0) await new Promise(r => setTimeout(r, 0));
       }
 
@@ -112,7 +69,42 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
       console.error("Verification error:", err);
       setStatus('idle'); 
     }
-  };
+  }, [contract, account]); // Dependency ensures this function updates when contract loads
+
+  // --- 2. File Processing (Wrapped in useCallback) ---
+  const processFile = useCallback(async (file: File) => {
+    if (!file) return;
+
+    setFileName(file.name);
+    setStatus('idle');
+    setFoundTokenId(null);
+    setUploadedPdfHash(''); 
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hex = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      
+      const hash = "0x" + hex;
+      
+      // Update State
+      setUploadedPdfHash(hash);
+      
+      // AUTO-START VERIFICATION
+      if (contract && account) {
+        await verifyDiploma(hash);
+      } else {
+        console.warn("Contract or Account not ready, manual scan required");
+        alert("Please connect your wallet to verify this document.");
+      }
+
+    } catch (error) {
+      console.error("Error processing file:", error);
+      setStatus('idle');
+    }
+  }, [contract, account, verifyDiploma]); // Critical dependencies
 
   // --- 3. Drag & Drop Handlers ---
 
@@ -133,6 +125,7 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
     setIsDragging(false);
   }, []);
 
+  // FIX: Added processFile to dependency array
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -141,13 +134,12 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       if (files[0].type === "application/pdf") {
-        // This triggers the process -> hash -> auto-verify chain
         processFile(files[0]);
       } else {
         alert("Please drop a PDF file.");
       }
     }
-  }, []); // Dependency array is empty as processFile is stable or accessible
+  }, [processFile]); // <--- This was the missing link!
 
   // --- 4. Render ---
   return (
@@ -196,7 +188,7 @@ export const VerifySection: React.FC<VerifySectionProps> = ({ contract, account 
            </div>
         </div>
 
-        {/* Manual Re-scan button (Optional, but good UX) */}
+        {/* Manual Re-scan button */}
         {uploadedPdfHash && status !== 'scanning' && (
            <div className="mt-4 flex justify-end">
              <button 
